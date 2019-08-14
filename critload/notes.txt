@@ -1,0 +1,22 @@
+
+# ### Nonlinear case (notes)
+#
+# # External work
+# W = dot(u,m)*dx
+#
+# # Potential energy
+# P = U - W
+#
+# F    = derivative(P, u)
+# dF_u = derivative(F, u)
+# dF_m = derivative(F, m)
+#
+# adj_dF_u = adjoint(dF_u)
+# adj_dF_m = adjoint(dF_m)
+#
+# def solve_adjoint_problem():
+#     return solve(adj_dF_u==dJ_u, z, bcs_zro)
+#
+# def solve_static_problem_nl():
+#     '''Solve non-linear statics problem.'''
+#     return solve(F==0, u, bcs, J=dF_u)
