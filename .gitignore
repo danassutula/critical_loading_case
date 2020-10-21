@@ -2,12 +2,9 @@
 .*
 *.pyc
 
-__pycache__
-
-docs/
-notes/
+__pycache__/
 results/
+archive/
 temp/
-test/
 
 !.gitignore

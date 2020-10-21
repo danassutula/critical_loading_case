@@ -20,7 +20,7 @@ def remove_existing_files(dirname, file_ext):
 
     if not isinstance(file_ext, (list, tuple)):
         file_ext = (file_ext,)
-        
+
     filenames = [filename for filename in os.listdir(dirname) if
                  any(filename.endswith(ext) for ext in file_ext)]
 
@@ -51,20 +51,21 @@ if __name__ == "__main__":
     ### Problem setup
 
     # PROBLEM_NAME = "clamped_one_side"
-    PROBLEM_NAME = "clamped_two_sides"
-    # PROBLEM_NAME = "clamped_four_sides"
+    # PROBLEM_NAME = "clamped_two_sides"
+    # PROBLEM_NAME = "clamped_three_sides"
+    PROBLEM_NAME = "clamped_four_sides"
 
-    problem_dimension = 2
-    # problem_dimension = 3
+    # problem_dimension = 2
+    problem_dimension = 3
 
     # large_deformations = True
     large_deformations = False
 
-    # Force integration domain
-    # dx_m = dx # Computed in volume
-    dx_m = ds # Computed on surface
+    # force_domain = "whole_volume"
+    # force_domain = "whole_surface"
+    force_domain = "top_surface"
 
-    force_magnitude = 1.0
+    force_magnitude = 5.0
 
     L = 10.0
     W = 10.0
@@ -80,6 +81,8 @@ if __name__ == "__main__":
         mesh = BoxMesh(Point(0, 0, 0), Point(L, W, H), nx, ny, nz)
     else:
         raise ValueError('Parameter `problem_dimension` can either equal 2 or 3')
+
+    gdim = mesh.geometric_dimension()
 
 
     ### Functions
@@ -101,7 +104,7 @@ if __name__ == "__main__":
     outfile_u = File(os.path.join(RESULTS_DIR, 'u.pvd'))
     outfile_m = File(os.path.join(RESULTS_DIR, 'm.pvd'))
 
-    solution_writing_cycle = 20
+    solution_writing_cycle = 10
 
     def write_solution_snapshot(iteration_step):
         if not iteration_step % solution_writing_cycle:
@@ -121,12 +124,33 @@ if __name__ == "__main__":
         fixed_boundary = CompiledSubDomain(f'x[0]<1e-6 || x[0]>{L}-1e-6')
         bcs = [DirichletBC(V_u, Constant((0.0,)*len(u)), fixed_boundary),]
 
-    elif PROBLEM_NAME == "clamped_four_sides" and problem_dimension == 3:
+    elif PROBLEM_NAME == "clamped_four_sides":
+
+        if problem_dimension != 3:
+            raise ValueError('Parameter `problem_dimension` should equal 3')
+
         fixed_boundary = CompiledSubDomain(f'x[0] < 1e-6 || x[0] > {L} - 1e-6 || '
                                            f'x[1] < 1e-6 || x[1] > {W} - 1e-6')
         bcs = [DirichletBC(V_u, Constant((0.0,)*len(u)), fixed_boundary),]
+
     else:
         raise ValueError('Parameter `PROBLEM_NAME`')
+
+
+    ### Force integration domain
+
+    if force_domain == "whole_volume":
+        dx_m = dolfin.dx
+    elif force_domain == "whole_surface":
+        dx_m = dolfin.ds
+    elif force_domain == "top_surface":
+        boundary_mf = MeshFunction('size_t', mesh, gdim-1, value=0)
+        top_boundary = CompiledSubDomain(f'x[{gdim}-1] > {H}-1e-6')
+        top_boundary_id = 1
+        top_boundary.mark(boundary_mf, marker=top_boundary_id)
+        dx_m = dolfin.ds(subdomain_data=boundary_mf, subdomain_id=1)
+    else:
+        raise ValueError('Parameter `force_domain`')
 
 
     ### Material model
@@ -180,11 +204,13 @@ if __name__ == "__main__":
     cutoffs = tuple(0.5e-1*i for i in range(20))
 
     tolerance = 0.5e-2
-    maximum_steps = 1000
+    maximum_steps = 2000
+
+    dims_m = [len(u)-1,]
+    # dims_m = range(len(u))
 
     m0 = [0.0,] * len(u)
-    dims_m = [i for i in range(len(u))]
-    for dim_i in dims_m: m0[dim_i] = -1.0e-1
+    for dim_i in dims_m: m0[dim_i] = -1.0
     m.assign(interpolate(Constant(m0), V_m))
 
     force_magnitude_ = assemble(sqrt(m**2)*dx_m)
